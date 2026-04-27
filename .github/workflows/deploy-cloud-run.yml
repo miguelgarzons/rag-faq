@@ -18,7 +18,8 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ vars.CLOUD_RUN_REGION || 'us-central1' }}
   SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE || 'rag-faq-api' }}
-  IMAGE: gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ vars.CLOUD_RUN_SERVICE || 'rag-faq-api' }}:${{ github.sha }}
+  REPOSITORY: rag-faq-repo
+  IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/rag-faq-repo/${{ vars.CLOUD_RUN_SERVICE || 'rag-faq-api' }}:${{ github.sha }}
 
 jobs:
   deploy:
@@ -38,8 +39,8 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker gcr.io --quiet
+      - name: Configure Docker auth (Artifact Registry)
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Build Docker image
         run: docker build -t "$IMAGE" .
