@@ -9,3 +9,4 @@ pgvector
 python-multipart
 pymupdf
 python-docx
+cloud-sql-python-connector[psycopg2]
