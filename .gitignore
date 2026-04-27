@@ -1,0 +1,20 @@
+.env
+gcp-key.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local IDE/editor settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

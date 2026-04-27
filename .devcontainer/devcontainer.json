@@ -1,0 +1,27 @@
+{
+  "name": "rag-faq",
+  "dockerComposeFile": [
+    "../docker-compose.yml"
+  ],
+  "service": "app",
+  "runServices": [
+    "db",
+    "app"
+  ],
+  "workspaceFolder": "/code",
+  "forwardPorts": [
+    8000,
+    5432
+  ],
+  "shutdownAction": "stopCompose",
+  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+﻿fastapi
+uvicorn
+pydantic
+langchain
+langchain-google-vertexai
+sqlalchemy
+psycopg2-binary
+pgvector
+python-multipart
+pymupdf
+python-docx

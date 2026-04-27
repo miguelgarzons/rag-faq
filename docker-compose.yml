@@ -1,0 +1,46 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secreto
+      POSTGRES_DB: faq_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d faq_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    working_dir: /code
+    ports:
+      - "8002:8000"
+    volumes:
+      - .:/code
+      - ./gcp-key.json:/code/gcp-key.json:ro
+    environment:
+      DATABASE_URL: postgresql://admin:secreto@db:5432/faq_db
+      GOOGLE_APPLICATION_CREDENTIALS: /code/gcp-key.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-}
+      GCP_MODEL_NAME: ${GCP_MODEL_NAME:-gemini-1.5-flash}
+      GCP_LOCATION: ${GCP_LOCATION:-us-central1}
+      GCP_TIMEOUT_SECONDS: ${GCP_TIMEOUT_SECONDS:-20}
+      ENABLE_VERTEX_AI: ${ENABLE_VERTEX_AI:-true}
+      RAG_PROFILE: ${RAG_PROFILE:-balanced}
+      RAG_TOP_K: ${RAG_TOP_K:-3}
+      RAG_CANDIDATE_MULTIPLIER: ${RAG_CANDIDATE_MULTIPLIER:-4}
+      RAG_KEYWORD_WEIGHT: ${RAG_KEYWORD_WEIGHT:-0.35}
+      RAG_SCORE_THRESHOLD: ${RAG_SCORE_THRESHOLD:-0.45}
+      RAG_THRESHOLD_FALLBACK_STEPS: ${RAG_THRESHOLD_FALLBACK_STEPS:-0.10,0.20,0.35}
+      RAG_MAX_SCORE_THRESHOLD: ${RAG_MAX_SCORE_THRESHOLD:-0.95}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
