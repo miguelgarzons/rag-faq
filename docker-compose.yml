@@ -18,12 +18,14 @@ services:
   app:
     build: .
     working_dir: /code
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8002:8000"
     volumes:
       - .:/code
       - ./gcp-key.json:/code/gcp-key.json:ro
     environment:
+      PYTHONPATH: /code:/code/rag-faq
       DATABASE_URL: postgresql://admin:secreto@db:5432/faq_db
       GOOGLE_APPLICATION_CREDENTIALS: /code/gcp-key.json
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-}

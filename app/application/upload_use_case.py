@@ -1,5 +1,5 @@
 import uuid
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.domain.entities import UploadResponse # La crearemos en el siguiente paso
 from app.domain.ports.repositories import VectorRepositoryPort
 from app.domain.ports.embeddings import EmbeddingsPort

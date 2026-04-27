@@ -2,6 +2,7 @@
 uvicorn
 pydantic
 langchain
+langchain-text-splitters
 langchain-google-vertexai
 sqlalchemy
 psycopg2-binary
@@ -9,4 +10,4 @@ pgvector
 python-multipart
 pymupdf
 python-docx
-cloud-sql-python-connector[psycopg2]
+cloud-sql-python-connector
