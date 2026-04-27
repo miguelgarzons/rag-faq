@@ -1,3 +1,4 @@
+```yaml
 name: Deploy to Cloud Run
 
 on:
@@ -19,7 +20,7 @@ env:
   REGION: ${{ vars.CLOUD_RUN_REGION || 'us-central1' }}
   SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE || 'rag-faq-api' }}
   REPOSITORY: rag-faq-repo
-  IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/rag-faq-repo/${{ vars.CLOUD_RUN_SERVICE || 'rag-faq-api' }}:${{ github.sha }}
+  IMAGE: ${{ vars.CLOUD_RUN_REGION || 'us-central1' }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/rag-faq-repo/${{ vars.CLOUD_RUN_SERVICE || 'rag-faq-api' }}:${{ github.sha }}
 
 jobs:
   deploy:
@@ -66,3 +67,4 @@ jobs:
         run: |
           URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format='value(status.url)')
           echo "Cloud Run URL: $URL"
+```
