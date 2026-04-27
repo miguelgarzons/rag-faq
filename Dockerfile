@@ -21,5 +21,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiamos el resto del código
 COPY . .
 
-# Comando para arrancar FastAPI en produccion (Cloud Run usa $PORT)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Comando para arrancar FastAPI en produccion
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
