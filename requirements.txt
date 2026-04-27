@@ -6,6 +6,7 @@ langchain-text-splitters
 langchain-google-vertexai
 sqlalchemy
 psycopg2-binary
+pg8000
 pgvector
 python-multipart
 pymupdf

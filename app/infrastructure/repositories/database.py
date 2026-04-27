@@ -48,7 +48,7 @@ def _build_cloud_sql_engine():
     def getconn():
         return connector.connect(
             instance_connection_name,
-            "psycopg2",
+            "pg8000",
             user=db_user,
             password=db_pass,
             db=db_name,
@@ -56,7 +56,7 @@ def _build_cloud_sql_engine():
         )
 
     return create_engine(
-        "postgresql+psycopg2://",
+        "postgresql+pg8000://",
         creator=getconn,
         pool_pre_ping=True,
     )
