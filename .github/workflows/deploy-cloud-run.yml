@@ -1,4 +1,4 @@
-```yaml
+
 name: Deploy to Cloud Run
 
 on:
@@ -67,4 +67,3 @@ jobs:
         run: |
           URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format='value(status.url)')
           echo "Cloud Run URL: $URL"
-```
