@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,19 @@ def startup_event():
         app.include_router(knowledge_controller.router)
     except Exception as exc:
         logger.exception("No se pudo registrar router Knowledge: %s", exc)
+
+    try:
+        from app.infrastructure.repositories.database import Base, engine
+        from app.infrastructure.repositories.models import DocumentChunkModel
+
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.commit()
+
+        Base.metadata.create_all(bind=engine)
+        logger.info("Base de datos inicializada: extension vector y tablas listas.")
+    except Exception as exc:
+        logger.exception("No se pudo inicializar la base de datos en startup: %s", exc)
 
 
 @app.get(
