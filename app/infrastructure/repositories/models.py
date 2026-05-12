@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text
+from sqlalchemy import Column, DateTime, String, Text, func
 from pgvector.sqlalchemy import Vector
 from app.infrastructure.repositories.database import Base
 
@@ -16,3 +16,14 @@ class DocumentChunkModel(Base):
     
     # El vector matemático (768 dimensiones para Google Vertex AI Embeddings)
     embedding = Column(Vector(768))
+
+
+class ChatMessageModel(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, index=True, nullable=False)
+    session_id = Column(String, index=True, nullable=False)
+    role = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

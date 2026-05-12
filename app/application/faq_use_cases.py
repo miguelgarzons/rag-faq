@@ -1,15 +1,24 @@
 from typing import Iterator
 import os
 import re
+import uuid
 
 from app.domain.entities import AskRequest, AnswerResponse
+from app.domain.ports.memory import MemoryRepositoryPort
 from app.domain.ports.repositories import VectorRepositoryPort
 from app.domain.ports.llm import LLMClientPort
 from app.domain.ports.embeddings import EmbeddingsPort
 
 class AskFaqUseCase:
-    def __init__(self, vector_repo: VectorRepositoryPort, llm_client: LLMClientPort, embeddings_client: EmbeddingsPort):
+    def __init__(
+        self,
+        vector_repo: VectorRepositoryPort,
+        memory_repo: MemoryRepositoryPort,
+        llm_client: LLMClientPort,
+        embeddings_client: EmbeddingsPort,
+    ):
         self.vector_repo = vector_repo
+        self.memory_repo = memory_repo
         self.llm_client = llm_client
         self.embeddings_client = embeddings_client
         self.rag_profile = os.getenv("RAG_PROFILE", "balanced").strip().lower()
@@ -23,6 +32,9 @@ class AskFaqUseCase:
         self.max_score_threshold = self._read_float("RAG_MAX_SCORE_THRESHOLD", 0.95, min_value=0.0, max_value=2.0)
 
     def execute(self, request: AskRequest) -> AnswerResponse:
+        session_id = request.session_id or str(uuid.uuid4())
+        message_history = self.memory_repo.get_recent_messages(request.user_id, session_id, limit=6)
+
         # 1. Convertir la pregunta en un vector
         question_vector = self.embeddings_client.get_embedding(request.question)
         
@@ -36,14 +48,24 @@ class AskFaqUseCase:
         clean_sources = self._clean_sources(context)
 
         if not context:
-            return AnswerResponse(answer="No tengo informacion suficiente sobre ese tema.", sources=[])
-        
-        # 3. Generar respuesta con Gemini
-        answer = self.llm_client.generate_answer(context, request.question)
-        
-        return AnswerResponse(answer=answer, sources=clean_sources)
+            fallback_answer = "No tengo informacion suficiente sobre ese tema."
+            self.memory_repo.save_message(request.user_id, session_id, "user", request.question)
+            self.memory_repo.save_message(request.user_id, session_id, "assistant", fallback_answer)
+            return AnswerResponse(answer=fallback_answer, sources=[], session_id=session_id)
 
-    def execute_stream(self, request: AskRequest) -> tuple[list[str], Iterator[str]]:
+        # 3. Generar respuesta con Gemini
+        question_with_memory = self._build_question_with_memory(request.question, message_history)
+        answer = self.llm_client.generate_answer(context, question_with_memory)
+
+        self.memory_repo.save_message(request.user_id, session_id, "user", request.question)
+        self.memory_repo.save_message(request.user_id, session_id, "assistant", answer)
+        
+        return AnswerResponse(answer=answer, sources=clean_sources, session_id=session_id)
+
+    def execute_stream(self, request: AskRequest) -> tuple[list[str], Iterator[str], str]:
+        session_id = request.session_id or str(uuid.uuid4())
+        message_history = self.memory_repo.get_recent_messages(request.user_id, session_id, limit=6)
+
         question_vector = self.embeddings_client.get_embedding(request.question)
         retrieval_debug = self._retrieve_context_debug(
             question_vector=question_vector,
@@ -54,11 +76,28 @@ class AskFaqUseCase:
         clean_sources = self._clean_sources(context)
 
         if not context:
-            return [], iter(["No tengo informacion suficiente sobre ese tema."])
+            fallback_answer = "No tengo informacion suficiente sobre ese tema."
+            self.memory_repo.save_message(request.user_id, session_id, "user", request.question)
+            self.memory_repo.save_message(request.user_id, session_id, "assistant", fallback_answer)
+            return [], iter([fallback_answer]), session_id
 
-        answer_stream = self.llm_client.stream_answer(context, request.question)
+        question_with_memory = self._build_question_with_memory(request.question, message_history)
+        answer_stream = self.llm_client.stream_answer(context, question_with_memory)
 
-        return clean_sources, answer_stream
+        def tracked_stream():
+            chunks: list[str] = []
+            for chunk in answer_stream:
+                chunks.append(chunk)
+                yield chunk
+
+            final_answer = "".join(chunks).strip()
+            if not final_answer:
+                final_answer = "No tengo informacion suficiente sobre ese tema."
+
+            self.memory_repo.save_message(request.user_id, session_id, "user", request.question)
+            self.memory_repo.save_message(request.user_id, session_id, "assistant", final_answer)
+
+        return clean_sources, tracked_stream(), session_id
 
     def debug_retrieval(self, request: AskRequest) -> dict:
         question_vector = self.embeddings_client.get_embedding(request.question)
@@ -288,3 +327,26 @@ class AskFaqUseCase:
         if len(normalized) <= max_len:
             return normalized
         return normalized[:max_len].rstrip() + "..."
+
+    def _build_question_with_memory(self, question: str, message_history: list[dict[str, str]]) -> str:
+        if not message_history:
+            return question
+
+        history_lines: list[str] = []
+        for item in message_history:
+            role = item.get("role", "user")
+            content = item.get("content", "").strip()
+            if not content:
+                continue
+            role_label = "Usuario" if role == "user" else "Asistente"
+            history_lines.append(f"{role_label}: {content}")
+
+        if not history_lines:
+            return question
+
+        history_text = "\n".join(history_lines)
+        return (
+            "Historial reciente de la sesion:\n"
+            f"{history_text}\n\n"
+            f"Pregunta actual del usuario: {question}"
+        )

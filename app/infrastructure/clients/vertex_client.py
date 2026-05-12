@@ -48,7 +48,7 @@ class VertexAILlmClient(LLMClientPort):
         context_str = "\n---\n".join(context)
 
         if not self.llm or self.model_unavailable:
-            return "No tengo informacion suficiente sobre ese tema"
+            return self._fallback_answer(context)
 
         chain = prompt | self.llm
 
@@ -59,7 +59,7 @@ class VertexAILlmClient(LLMClientPort):
             if "was not found" in message or "does not have access" in message:
                 self.model_unavailable = True
             logger.error("Vertex AI no disponible (model=%s): %s", self.model_name, exc)
-            return "No tengo informacion suficiente sobre ese tema"
+            return self._fallback_answer(context)
 
         if hasattr(response, "content"):
             return str(response.content).strip()
@@ -82,7 +82,7 @@ class VertexAILlmClient(LLMClientPort):
         context_str = "\n---\n".join(context)
 
         if not self.llm or self.model_unavailable:
-            yield "No tengo informacion suficiente sobre ese tema"
+            yield self._fallback_answer(context)
             return
 
         chain = prompt | self.llm
@@ -101,4 +101,10 @@ class VertexAILlmClient(LLMClientPort):
             if "was not found" in message or "does not have access" in message:
                 self.model_unavailable = True
             logger.error("Vertex AI no disponible (model=%s): %s", self.model_name, exc)
-            yield "No tengo informacion suficiente sobre ese tema"
+            yield self._fallback_answer(context)
+
+    def _fallback_answer(self, context: list[str]) -> str:
+        if context:
+            first = " ".join(context[0].split())
+            return f"Segun los documentos, {first}"
+        return "No tengo informacion suficiente sobre ese tema"

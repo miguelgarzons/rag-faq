@@ -14,8 +14,8 @@ router = APIRouter(prefix="/faq", tags=["FAQ"])
     response_model=AnswerResponse,
     summary="Responder una pregunta con RAG",
     description=(
-        "Recibe una pregunta y un department_id, busca contexto en la base vectorial "
-        "y retorna una respuesta completa junto con las fuentes recuperadas."
+        "Recibe una pregunta junto con user_id y session_id opcional; busca contexto "
+        "en la base vectorial y retorna una respuesta completa con session_id y fuentes."
     ),
     responses={
         200: {
@@ -28,6 +28,7 @@ router = APIRouter(prefix="/faq", tags=["FAQ"])
                             "El horario de entrada es a las 9:00 AM.",
                             "Las vacaciones se piden con 15 dias de anticipacion.",
                         ],
+                        "session_id": "2c1a453b-06e6-413f-940c-708296428e66",
                     }
                 }
             },
@@ -44,14 +45,15 @@ def ask_question(request: AskRequest, use_case: AskFaqUseCase = Depends(get_ask_
     summary="Responder pregunta por streaming SSE",
     description=(
         "Mismo input que /faq/ask, pero responde en streaming SSE (text/event-stream). "
-        "Eventos emitidos: sources, token y done."
+        "Eventos emitidos: session, sources, token y done."
     ),
     responses={
         200: {
             "description": "Flujo SSE iniciado correctamente",
             "content": {
                 "text/event-stream": {
-                    "example": "event: sources\\ndata: {\"sources\": [\"...\"]}\\n\\n"
+                    "example": "event: session\\ndata: {\"session_id\": \"...\"}\\n\\n"
+                    "event: sources\\ndata: {\"sources\": [\"...\"]}\\n\\n"
                     "event: token\\ndata: {\"token\": \"Hola\"}\\n\\n"
                     "event: done\\ndata: {}\\n\\n"
                 }
@@ -61,9 +63,12 @@ def ask_question(request: AskRequest, use_case: AskFaqUseCase = Depends(get_ask_
     },
 )
 def ask_question_stream(request: AskRequest, use_case: AskFaqUseCase = Depends(get_ask_faq_use_case)):
-    context, answer_stream = use_case.execute_stream(request)
+    context, answer_stream, session_id = use_case.execute_stream(request)
 
     def event_stream():
+        session_payload = json.dumps({"session_id": session_id}, ensure_ascii=False)
+        yield f"event: session\ndata: {session_payload}\n\n"
+
         sources_payload = json.dumps({"sources": context}, ensure_ascii=False)
         yield f"event: sources\ndata: {sources_payload}\n\n"
 
@@ -86,14 +91,15 @@ def ask_question_stream(request: AskRequest, use_case: AskFaqUseCase = Depends(g
     summary="Responder pregunta por streaming NDJSON",
     description=(
         "Mismo input que /faq/ask, pero responde en streaming chunked NDJSON "
-        "(application/x-ndjson). Cada linea es un JSON con type=sources|token|done."
+        "(application/x-ndjson). Cada linea es un JSON con type=session|sources|token|done."
     ),
     responses={
         200: {
             "description": "Flujo NDJSON iniciado correctamente",
             "content": {
                 "application/x-ndjson": {
-                    "example": "{\"type\":\"sources\",\"sources\":[\"...\"]}\\n"
+                    "example": "{\"type\":\"session\",\"session_id\":\"...\"}\\n"
+                    "{\"type\":\"sources\",\"sources\":[\"...\"]}\\n"
                     "{\"type\":\"token\",\"token\":\"Hola\"}\\n"
                     "{\"type\":\"done\"}\\n"
                 }
@@ -103,9 +109,10 @@ def ask_question_stream(request: AskRequest, use_case: AskFaqUseCase = Depends(g
     },
 )
 def ask_question_chunked(request: AskRequest, use_case: AskFaqUseCase = Depends(get_ask_faq_use_case)):
-    context, answer_stream = use_case.execute_stream(request)
+    context, answer_stream, session_id = use_case.execute_stream(request)
 
     def chunk_stream():
+        yield json.dumps({"type": "session", "session_id": session_id}, ensure_ascii=False) + "\n"
         yield json.dumps({"type": "sources", "sources": context}, ensure_ascii=False) + "\n"
 
         for chunk in answer_stream:

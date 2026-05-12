@@ -121,6 +121,8 @@ Responder una pregunta en una sola respuesta JSON usando RAG.
 
 ```json
 {
+  "user_id": "miguel",
+  "session_id": null,
   "question": "Cual es el horario de entrada?",
   "department_id": "rrhh"
 }
@@ -134,7 +136,8 @@ Responder una pregunta en una sola respuesta JSON usando RAG.
   "sources": [
     "El horario de entrada es a las 9:00 AM.",
     "Las vacaciones se piden con 15 dias de anticipacion."
-  ]
+  ],
+  "session_id": "2c1a453b-06e6-413f-940c-708296428e66"
 }
 ```
 
@@ -145,7 +148,8 @@ Responder una pregunta en una sola respuesta JSON usando RAG.
 ### Notas
 
 - `sources` trae los fragmentos recuperados de la base vectorial.
-- Si el LLM no esta disponible, el backend puede devolver una respuesta fallback.
+- `session_id` identifica la conversacion del usuario para mantener memoria.
+- Si el LLM no esta disponible, el backend devuelve fallback con contexto cuando exista.
 
 ---
 
@@ -168,6 +172,8 @@ Enviar la respuesta por partes para que el frontend la vaya pintando en tiempo r
 
 ```json
 {
+  "user_id": "miguel",
+  "session_id": "2c1a453b-06e6-413f-940c-708296428e66",
   "question": "Cual es el horario de entrada?",
   "department_id": "rrhh"
 }
@@ -175,6 +181,7 @@ Enviar la respuesta por partes para que el frontend la vaya pintando en tiempo r
 
 ### Eventos emitidos
 
+- `session`: id de sesion para reusar en siguientes preguntas.
 - `sources`: fuentes recuperadas antes de emitir tokens.
 - `token`: fragmento de texto de la respuesta.
 - `done`: fin de stream.
@@ -182,6 +189,9 @@ Enviar la respuesta por partes para que el frontend la vaya pintando en tiempo r
 ### Ejemplo de stream
 
 ```text
+event: session
+data: {"session_id": "2c1a453b-06e6-413f-940c-708296428e66"}
+
 event: sources
 data: {"sources": ["..."]}
 
@@ -203,7 +213,7 @@ data: {}
 ```bash
 curl -N -X POST "http://localhost:8002/faq/ask/stream" \
   -H "Content-Type: application/json" \
-  -d '{"question":"Cual es el horario de entrada?","department_id":"rrhh"}'
+  -d '{"user_id":"miguel","session_id":null,"question":"Cual es el horario de entrada?","department_id":"rrhh"}'
 ```
 
 ### Errores posibles
@@ -236,12 +246,14 @@ Alternativa de streaming para clientes que prefieren lineas JSON en vez de SSE.
 ### Formato de eventos NDJSON
 
 - `{"type":"sources","sources":[...]}`
+- `{"type":"session","session_id":"..."}`
 - `{"type":"token","token":"..."}` (varias lineas)
 - `{"type":"done"}`
 
 ### Ejemplo de stream
 
 ```text
+{"type":"session","session_id":"2c1a453b-06e6-413f-940c-708296428e66"}
 {"type":"sources","sources":["..."]}
 {"type":"token","token":"El horario"}
 {"type":"token","token":" de entrada"}
@@ -254,7 +266,7 @@ Alternativa de streaming para clientes que prefieren lineas JSON en vez de SSE.
 ```bash
 curl -N -X POST "http://localhost:8002/faq/ask/chunked" \
   -H "Content-Type: application/json" \
-  -d '{"question":"Cual es el horario de entrada?","department_id":"rrhh"}'
+  -d '{"user_id":"miguel","session_id":null,"question":"Cual es el horario de entrada?","department_id":"rrhh"}'
 ```
 
 ### Errores posibles
@@ -321,7 +333,7 @@ Ejemplo:
 ```bash
 curl -X POST "http://localhost:8002/faq/debug/retrieval" \
   -H "Content-Type: application/json" \
-  -d '{"question":"Que habilidades menciona?","department_id":"rrhh"}'
+  -d '{"user_id":"miguel","session_id":"2c1a453b-06e6-413f-940c-708296428e66","question":"Que habilidades menciona?","department_id":"rrhh"}'
 ```
 
 ### Errores posibles
@@ -352,6 +364,7 @@ curl -X POST "http://localhost:8002/faq/debug/retrieval" \
 
 - Si usas SSE con `POST`, evita `EventSource` directo y usa `fetch` con lectura de stream.
 - Para parsing simple por linea, `NDJSON` suele ser mas facil de manejar en algunos clientes.
+- En ambos streams, guarda `session_id` del evento inicial y reusalo en mensajes siguientes del mismo usuario.
 - En ambos streams, usa `sources` al inicio para mostrar referencias y luego concatena `token` para construir la respuesta final.
 
 ---
